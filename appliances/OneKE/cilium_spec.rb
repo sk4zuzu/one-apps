@@ -5,6 +5,7 @@ require 'rspec'
 require 'tmpdir'
 require 'yaml'
 
+require_relative 'helpers.rb'
 require_relative 'cilium.rb'
 
 RSpec.describe 'extract_cilium_ranges' do

@@ -1,12 +1,5 @@
 # frozen_string_literal: true
 
-def env(name, default)
-    value = ENV.fetch name.to_s, ''
-    value = value.empty? ? default : value
-    value = %w[YES 1].include?(value.upcase) if default.instance_of?(String) && %w[YES NO].include?(default.upcase)
-    value
-end
-
 ONE_SERVICE_VERSION   = env :ONE_SERVICE_VERSION, '1.27'
 ONE_SERVICE_AIRGAPPED = env :ONE_SERVICE_AIRGAPPED, 'NO'
 ONE_SERVICE_SETUP_DIR = env :ONE_SERVICE_SETUP_DIR, '/opt/one-appliance'
@@ -20,7 +13,7 @@ ONEAPP_K8S_MULTUS_CONFIG  = env :ONEAPP_K8S_MULTUS_CONFIG, nil
 
 ONEAPP_K8S_CNI_PLUGIN    = env :ONEAPP_K8S_CNI_PLUGIN, 'cilium'
 ONEAPP_K8S_CNI_CONFIG    = env :ONEAPP_K8S_CNI_CONFIG, nil
-ONEAPP_K8S_CILIUM_RANGES = ENV.select { |key, _| key.start_with? 'ONEAPP_K8S_CILIUM_RANGE' }.values.freeze
+ONEAPP_K8S_CILIUM_RANGES = ENV.select { |key, _| key.start_with? 'ONEAPP_K8S_CILIUM_RANGE' } .values.freeze
 
 ONEAPP_K8S_LONGHORN_CHART_VERSION = env :ONEAPP_K8S_LONGHORN_CHART_VERSION, '1.4.1'
 ONEAPP_K8S_LONGHORN_ENABLED       = env :ONEAPP_K8S_LONGHORN_ENABLED, 'NO'
@@ -28,7 +21,7 @@ ONEAPP_K8S_LONGHORN_ENABLED       = env :ONEAPP_K8S_LONGHORN_ENABLED, 'NO'
 ONEAPP_K8S_METALLB_CHART_VERSION = env :ONEAPP_K8S_METALLB_CHART_VERSION, '0.13.9'
 ONEAPP_K8S_METALLB_ENABLED       = env :ONEAPP_K8S_METALLB_ENABLED, 'NO'
 ONEAPP_K8S_METALLB_CONFIG        = env :ONEAPP_K8S_METALLB_CONFIG, nil
-ONEAPP_K8S_METALLB_RANGES        = ENV.select { |key, _| key.start_with? 'ONEAPP_K8S_METALLB_RANGE' }.values.freeze
+ONEAPP_K8S_METALLB_RANGES        = ENV.select { |key, _| key.start_with? 'ONEAPP_K8S_METALLB_RANGE' } .values.freeze
 
 ONEAPP_K8S_TRAEFIK_CHART_VERSION = env :ONEAPP_K8S_TRAEFIK_CHART_VERSION, '23.0.0'
 ONEAPP_K8S_TRAEFIK_ENABLED       = env :ONEAPP_K8S_TRAEFIK_ENABLED, 'NO'
