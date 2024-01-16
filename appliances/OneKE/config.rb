@@ -1,5 +1,11 @@
 # frozen_string_literal: true
 
+begin
+    require '/etc/one-appliance/lib/helpers.rb'
+rescue LoadError
+    require_relative '../lib/helpers.rb'
+end
+
 ONE_SERVICE_VERSION   = env :ONE_SERVICE_VERSION, '1.27'
 ONE_SERVICE_AIRGAPPED = env :ONE_SERVICE_AIRGAPPED, 'NO'
 ONE_SERVICE_SETUP_DIR = env :ONE_SERVICE_SETUP_DIR, '/opt/one-appliance'

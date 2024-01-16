@@ -53,6 +53,8 @@ def fetch_cleaner(addon_dir = ONE_ADDON_DIR, cron = '*/2 * * * *', ttl = 180)
                   mountPath: /usr/bin/onegate
                 - name: onegaterb
                   mountPath: /usr/bin/onegate.rb
+                - name: lib
+                  mountPath: /etc/one-appliance/lib/
                 - name: appliance
                   mountPath: /etc/one-appliance/service.d/OneKE/
               volumes:
@@ -76,6 +78,10 @@ def fetch_cleaner(addon_dir = ONE_ADDON_DIR, cron = '*/2 * * * *', ttl = 180)
                 hostPath:
                   path: /usr/bin/onegate.rb
                   type: File
+              - name: lib
+                hostPath:
+                  path: /etc/one-appliance/lib/
+                  type: Directory
               - name: appliance
                 hostPath:
                   path: /etc/one-appliance/service.d/OneKE/
