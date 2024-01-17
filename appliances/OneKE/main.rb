@@ -25,8 +25,6 @@ module OneKE
     def install
         msg :info, 'OneKE::install'
 
-        msg :debug, "ONE_SERVICE_AIRGAPPED=#{ONE_SERVICE_AIRGAPPED}"
-
         install_packages PACKAGES
 
         with_policy_rc_d_disabled { install_kubernetes }
@@ -44,8 +42,6 @@ module OneKE
 
     def configure
         msg :info, 'OneKE::configure'
-
-        msg :debug, "ONE_SERVICE_AIRGAPPED=#{ONE_SERVICE_AIRGAPPED}"
 
         prepare_dedicated_storage unless ONEAPP_STORAGE_DEVICE.nil?
 

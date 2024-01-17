@@ -1,38 +1,73 @@
 # frozen_string_literal: true
 
+require 'ipaddr'
+
 require_relative 'config.rb'
 require_relative 'helpers.rb'
 require_relative 'onegate.rb'
 
-def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0, dns_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
-    if (gw_ok = !gw_ipv4.nil? && ipv4?(gw_ipv4))
+def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0,
+                  use_dns = ONEAPP_VNF_DNS_ENABLED,
+                  dns_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
+
+    if gw_ipv4.nil? || (use_dns && dns_ipv4.nil?)
+        addr_info = ip_addr_show('eth0')&.dig(0, 'addr_info')
+                                        &.find { |item| item['family'] == 'inet'}
+        if addr_info.nil?
+            msg :error, 'Unable to get local IP, aborting..'
+            exit 1
+        end
+
+        subnet = IPAddr.new("#{addr_info['local']}/#{addr_info['prefixlen']}")
+
+        vnf_ipv4 = vnf_vm_show&.dig('VM', 'TEMPLATE', 'NIC')
+                              &.find { |item| !(ip = item['IP']).nil? && subnet.include?(ip) }
+                              &.dig('IP')
+        if vnf_ipv4.nil?
+            msg :error, 'Unable to get VNF IP, aborting..'
+            exit 1
+        end
+
+        if gw_ipv4.nil?
+            msg :info, "Using '#{vnf_ipv4}' as default gateway.."
+            gw_ipv4 = vnf_ipv4
+        end
+
+        if use_dns && dns_ipv4.nil?
+            msg :info, "Using '#{vnf_ipv4}' as primary nameserver.."
+            dns_ipv4 = vnf_ipv4
+        end
+    end
+
+    if (gw_ok = !gw_ipv4.nil? && ipv4?(gw_ipv4)) == true
         msg :debug, 'Configure default gateway (temporarily)'
         bash "ip route replace default via #{gw_ipv4} dev eth0"
     end
 
-    if (dns_ok = !dns_ipv4.nil? && ipv4?(dns_ipv4))
+    if (dns_ok = use_dns && !dns_ipv4.nil? && ipv4?(dns_ipv4)) == true
         msg :debug, 'Configure primary DNS (temporarily)'
-        file '/etc/resolv.conf', <<~RESOLV_CONF, owner: 0, group: 0, overwrite: true
+        file '/etc/resolv.conf', <<~RESOLV_CONF, overwrite: true
         nameserver #{dns_ipv4}
         RESOLV_CONF
     end
 
     msg :info, 'Install the vnf-restore service'
 
-    file '/etc/systemd/system/vnf-restore.service', <<~SERVICE
+    file '/etc/systemd/system/vnf-restore.service', <<~SERVICE, overwrite: true
     [Unit]
     After=network.target
 
     [Service]
     Type=oneshot
     ExecStart=/bin/sh -ec '#{gw_ok ? "ip route replace default via #{gw_ipv4} dev eth0" : ':'}'
+    ExecStart=/bin/sh -ec '#{dns_ok ? "echo 'nameserver #{dns_ipv4}' > /etc/resolv.conf" : ':'}'
 
     [Install]
     WantedBy=multi-user.target
     SERVICE
 
-    # Make sure vnf-restore is triggered everytime one-context-reconfigure.service runs
-    file '/etc/systemd/system/one-context-reconfigure.service.d/vnf-restore.conf', <<~SERVICE
+    # Make sure vnf-restore is triggered everytime one-context-reconfigure.service runs.
+    file '/etc/systemd/system/one-context-reconfigure.service.d/vnf-restore.conf', <<~SERVICE, overwrite: true
     [Service]
     ExecStartPost=/usr/bin/systemctl restart vnf-restore.service
     SERVICE
