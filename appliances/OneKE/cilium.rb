@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'base64'
-require 'resolv'
 require 'uri'
 require 'yaml'
 
@@ -26,7 +25,7 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONT
         spec:
           valuesContent: |-
             kubeProxyReplacement: strict
-            k8sServiceHost: "#{Resolv.getaddress ep.host}"
+            k8sServiceHost: "#{ep.host}"
             k8sServicePort: #{ep.port}
             cni:
               chainingMode: "none"

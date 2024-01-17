@@ -4,9 +4,7 @@ require_relative 'config.rb'
 require_relative 'helpers.rb'
 require_relative 'onegate.rb'
 
-def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0,
-                  dns_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
-
+def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0, dns_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
     if (gw_ok = !gw_ipv4.nil? && ipv4?(gw_ipv4))
         msg :debug, 'Configure default gateway (temporarily)'
         bash "ip route replace default via #{gw_ipv4} dev eth0"

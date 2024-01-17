@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'resolv'
 require 'securerandom'
 require 'uri'
 require 'yaml'
@@ -85,7 +84,7 @@ end
 def wait_for_any_master(retries = RETRIES, seconds = SECONDS)
     msg :info, 'Wait for any master to be available'
 
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         msg :debug, "wait_for_any_master / #{retry_num}"
 
         master_vms_show.each do |master_vm|
@@ -113,7 +112,7 @@ end
 def wait_for_control_plane(endpoint = ONEAPP_K8S_CONTROL_PLANE_EP, retries = RETRIES, seconds = SECONDS)
     msg :info, 'Wait for Control-Plane to be ready'
 
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         msg :debug, "wait_for_control_plane / #{retry_num}"
 
         break if http_status_200? "https://#{endpoint}/readyz"
@@ -130,7 +129,7 @@ end
 def wait_for_kubelets(retries = RETRIES, seconds = SECONDS)
     msg :info, 'Wait for available Kubelets to be ready'
 
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         msg :debug, "wait_for_kubelets / #{retry_num}"
 
         conditions = kubectl_get_nodes['items'].map do |node|
@@ -170,7 +169,6 @@ def init_master
     cp = URI.parse "https://#{ONEAPP_K8S_CONTROL_PLANE_EP}"
     sans = ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip)
     sans << cp.host
-    sans << Resolv.getaddress(cp.host) # Cilium needs this
 
     server_config = {
         'node-name'          => name,
@@ -218,7 +216,6 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
     cp = URI.parse "https://#{ONEAPP_K8S_CONTROL_PLANE_EP}"
     sans = ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip)
     sans << cp.host
-    sans << Resolv.getaddress(cp.host) # Cilium needs this
 
     server_config = {
         'node-name'          => name,
@@ -236,14 +233,14 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
 
     # The rke2-server systemd service restarts automatically and eventually joins.
     # If it really cannot join we want to reflect this in OneFlow.
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         if retry_num.zero?
             msg :error, 'Unable to join Control-Plane'
             exit 1
         end
         begin
             msg :info, "Join master: #{name} / #{retry_num}"
-            bash 'systemctl enable rke2-server.service --now', terminate: false
+            bash 'systemctl enable rke2-server.service --now'
         rescue RuntimeError
             sleep seconds
             next
