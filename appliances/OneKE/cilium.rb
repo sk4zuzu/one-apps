@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 require 'base64'
+require 'resolv'
 require 'uri'
 require 'yaml'
 
 require_relative 'config.rb'
 require_relative 'helpers.rb'
 
-def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = K8S_CONTROL_PLANE_EP)
+def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONTROL_PLANE_EP)
     msg :info, 'Configure Cilium'
 
     ep = URI.parse "https://#{endpoint}"
@@ -25,7 +26,7 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = K8S_CONTROL_PLA
         spec:
           valuesContent: |-
             kubeProxyReplacement: strict
-            k8sServiceHost: "#{ep.host}"
+            k8sServiceHost: "#{Resolv.getaddress ep.host}"
             k8sServicePort: #{ep.port}
             cni:
               chainingMode: "none"
@@ -64,7 +65,7 @@ def extract_cilium_ranges(ranges = ONEAPP_K8S_CILIUM_RANGES)
     ranges.compact
           .map(&:strip)
           .reject(&:empty?)
-          .map { |item| item.split('/').map(&:strip) }
+          .map { |item| item.split(%[/]).map(&:strip) }
           .reject { |item| item.length > 2 }
           .reject { |item| item.map(&:empty?).any? }
           .reject { |item| !(ipv4?(item.first) && integer?(item.last)) }

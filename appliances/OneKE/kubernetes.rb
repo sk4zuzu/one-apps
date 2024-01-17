@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require 'resolv'
 require 'securerandom'
+require 'uri'
 require 'yaml'
 
 require_relative 'config.rb'
@@ -108,7 +110,7 @@ def wait_for_any_master(retries = RETRIES, seconds = SECONDS)
     end
 end
 
-def wait_for_control_plane(endpoint = K8S_CONTROL_PLANE_EP, retries = RETRIES, seconds = SECONDS)
+def wait_for_control_plane(endpoint = ONEAPP_K8S_CONTROL_PLANE_EP, retries = RETRIES, seconds = SECONDS)
     msg :info, 'Wait for Control-Plane to be ready'
 
     retries.times.to_a.reverse.each do |retry_num|
@@ -165,10 +167,15 @@ def init_master
     cni << 'multus' if ONEAPP_K8S_MULTUS_ENABLED
     cni << ONEAPP_K8S_CNI_PLUGIN
 
+    cp = URI.parse "https://#{ONEAPP_K8S_CONTROL_PLANE_EP}"
+    sans = ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip)
+    sans << cp.host
+    sans << Resolv.getaddress(cp.host) # Cilium needs this
+
     server_config = {
         'node-name'          => name,
         'token'              => SecureRandom.uuid,
-        'tls-san'            => ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip).append(ONEAPP_VROUTER_ETH0_VIP0),
+        'tls-san'            => sans.uniq,
         'node-taint'         => ['CriticalAddonsOnly=true:NoExecute'],
         'disable'            => ['rke2-ingress-nginx'],
         'cni'                => cni,
@@ -182,7 +189,7 @@ def init_master
     bash 'systemctl enable rke2-server.service --now'
 
     server_config.merge!({
-        'server' => "https://#{K8S_SUPERVISOR_EP}",
+        'server' => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'  => File.read('/var/lib/rancher/rke2/server/node-token', encoding: 'utf-8').strip
     })
 
@@ -208,11 +215,16 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
     cni << 'multus' if ONEAPP_K8S_MULTUS_ENABLED
     cni << ONEAPP_K8S_CNI_PLUGIN
 
+    cp = URI.parse "https://#{ONEAPP_K8S_CONTROL_PLANE_EP}"
+    sans = ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip)
+    sans << cp.host
+    sans << Resolv.getaddress(cp.host) # Cilium needs this
+
     server_config = {
         'node-name'          => name,
-        'server'             => "https://#{K8S_SUPERVISOR_EP}",
+        'server'             => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'              => token,
-        'tls-san'            => ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip).append(ONEAPP_VROUTER_ETH0_VIP0),
+        'tls-san'            => sans.uniq,
         'node-taint'         => ['CriticalAddonsOnly=true:NoExecute'],
         'disable'            => ['rke2-ingress-nginx'],
         'cni'                => cni,
@@ -260,7 +272,7 @@ def join_worker(token)
 
     agent_config = {
         'node-name' => name,
-        'server'    => "https://#{K8S_SUPERVISOR_EP}",
+        'server'    => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'     => token
     }
 
@@ -282,7 +294,7 @@ def join_storage(token)
 
     agent_config = {
         'node-name'  => name,
-        'server '    => "https://#{K8S_SUPERVISOR_EP}",
+        'server'     => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'      => token,
         'node-taint' => ['node.longhorn.io/create-default-disk=true:NoSchedule'],
         'node-label' => ['node.longhorn.io/create-default-disk=true']

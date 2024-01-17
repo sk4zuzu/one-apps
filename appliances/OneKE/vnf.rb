@@ -4,12 +4,19 @@ require_relative 'config.rb'
 require_relative 'helpers.rb'
 require_relative 'onegate.rb'
 
-def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
-    gw_ok = !gw_ipv4.nil? && ipv4?(gw_ipv4)
+def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0,
+                  dns_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
 
-    if gw_ok
+    if (gw_ok = !gw_ipv4.nil? && ipv4?(gw_ipv4))
         msg :debug, 'Configure default gateway (temporarily)'
         bash "ip route replace default via #{gw_ipv4} dev eth0"
+    end
+
+    if (dns_ok = !dns_ipv4.nil? && ipv4?(dns_ipv4))
+        msg :debug, 'Configure primary DNS (temporarily)'
+        file '/etc/resolv.conf', <<~RESOLV_CONF, owner: 0, group: 0, overwrite: true
+        nameserver #{dns_ipv4}
+        RESOLV_CONF
     end
 
     msg :info, 'Install the vnf-restore service'
@@ -39,14 +46,12 @@ def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
     SCRIPT
 end
 
-def vnf_supervisor_setup_backend(index = 0,
-                                 lb_ipv4 = ONEAPP_VROUTER_ETH0_VIP0,
-                                 lb_port = 9345)
+def vnf_supervisor_setup_backend(lb_idx = 0,
+                                 lb_ipv4 = ONEAPP_VNF_HAPROXY_LB0_IP,
+                                 lb_port = ONEAPP_VNF_HAPROXY_LB0_PORT)
 
-    lb_ok = !lb_ipv4.nil? && ipv4?(lb_ipv4) && port?(lb_port)
-
-    unless lb_ok
-        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{index}, aborting.."
+    unless (lb_ok = !lb_ipv4.nil? && port?(lb_port))
+        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{lb_idx}, aborting.."
         exit 1
     end
 
@@ -54,24 +59,22 @@ def vnf_supervisor_setup_backend(index = 0,
         .reject { |item| item == lb_ipv4 }
         .first
 
-    msg :info, "Register VNF/HAPROXY/#{index} backend in OneGate"
+    msg :info, "Register VNF/HAPROXY/#{lb_idx} backend in OneGate"
 
     onegate_vm_update [
-        "ONEGATE_HAPROXY_LB#{index}_IP=#{lb_ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_PORT=#{lb_port}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_HOST=#{ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_PORT=#{lb_port}"
+        "ONEGATE_HAPROXY_LB#{lb_idx}_IP=#{lb_ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_PORT=#{lb_port}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_HOST=#{ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_PORT=#{lb_port}"
     ]
 end
 
-def vnf_control_plane_setup_backend(index = 1,
-                                    lb_ipv4 = ONEAPP_VROUTER_ETH0_VIP0,
-                                    lb_port = 6443)
+def vnf_control_plane_setup_backend(lb_idx = 1,
+                                    lb_ipv4 = ONEAPP_VNF_HAPROXY_LB1_IP,
+                                    lb_port = ONEAPP_VNF_HAPROXY_LB1_PORT)
 
-    lb_ok = !lb_ipv4.nil? && ipv4?(lb_ipv4) && port?(lb_port)
-
-    unless lb_ok
-        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{index}, aborting.."
+    unless (lb_ok = !lb_ipv4.nil? && port?(lb_port))
+        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{lb_idx}, aborting.."
         exit 1
     end
 
@@ -79,24 +82,22 @@ def vnf_control_plane_setup_backend(index = 1,
         .reject { |item| item == lb_ipv4 }
         .first
 
-    msg :info, "Register VNF/HAPROXY/#{index} backend in OneGate"
+    msg :info, "Register VNF/HAPROXY/#{lb_idx} backend in OneGate"
 
     onegate_vm_update [
-        "ONEGATE_HAPROXY_LB#{index}_IP=#{lb_ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_PORT=#{lb_port}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_HOST=#{ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_PORT=#{lb_port}"
+        "ONEGATE_HAPROXY_LB#{lb_idx}_IP=#{lb_ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_PORT=#{lb_port}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_HOST=#{ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_PORT=#{lb_port}"
     ]
 end
 
-def vnf_ingress_setup_https_backend(index = 2,
-                                    lb_ipv4 = ONEAPP_VROUTER_ETH0_VIP0,
+def vnf_ingress_setup_https_backend(lb_idx = 2,
+                                    lb_ipv4 = ONEAPP_VNF_HAPROXY_LB2_IP,
                                     lb_port = ONEAPP_VNF_HAPROXY_LB2_PORT)
 
-    lb_ok = !lb_ipv4.nil? && ipv4?(lb_ipv4) && port?(lb_port)
-
-    unless lb_ok
-        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{index}, aborting.."
+    unless (lb_ok = !lb_ipv4.nil? && port?(lb_port))
+        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{lb_idx}, aborting.."
         exit 1
     end
 
@@ -104,26 +105,24 @@ def vnf_ingress_setup_https_backend(index = 2,
         .reject { |item| item == lb_ipv4 }
         .first
 
-    msg :info, "Register VNF/HAPROXY/#{index} backend in OneGate"
+    msg :info, "Register VNF/HAPROXY/#{lb_idx} backend in OneGate"
 
     server_port = lb_port.to_i + 32_000
 
     onegate_vm_update [
-        "ONEGATE_HAPROXY_LB#{index}_IP=#{lb_ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_PORT=#{lb_port}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_HOST=#{ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_PORT=#{server_port}"
+        "ONEGATE_HAPROXY_LB#{lb_idx}_IP=#{lb_ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_PORT=#{lb_port}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_HOST=#{ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_PORT=#{server_port}"
     ]
 end
 
-def vnf_ingress_setup_http_backend(index = 3,
-                                   lb_ipv4 = ONEAPP_VROUTER_ETH0_VIP0,
+def vnf_ingress_setup_http_backend(lb_idx = 3,
+                                   lb_ipv4 = ONEAPP_VNF_HAPROXY_LB3_IP,
                                    lb_port = ONEAPP_VNF_HAPROXY_LB3_PORT)
 
-    lb_ok = !lb_ipv4.nil? && ipv4?(lb_ipv4) && port?(lb_port)
-
-    unless lb_ok
-        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{index}, aborting.."
+    unless (lb_ok = !lb_ipv4.nil? && port?(lb_port))
+        msg :error, "Invalid IPv4/port for VNF/HAPROXY/#{lb_idx}, aborting.."
         exit 1
     end
 
@@ -131,14 +130,14 @@ def vnf_ingress_setup_http_backend(index = 3,
         .reject { |item| item == lb_ipv4 }
         .first
 
-    msg :info, "Register VNF/HAPROXY/#{index} backend in OneGate"
+    msg :info, "Register VNF/HAPROXY/#{lb_idx} backend in OneGate"
 
     server_port = lb_port.to_i + 32_000
 
     onegate_vm_update [
-        "ONEGATE_HAPROXY_LB#{index}_IP=#{lb_ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_PORT=#{lb_port}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_HOST=#{ipv4}",
-        "ONEGATE_HAPROXY_LB#{index}_SERVER_PORT=#{server_port}"
+        "ONEGATE_HAPROXY_LB#{lb_idx}_IP=#{lb_ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_PORT=#{lb_port}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_HOST=#{ipv4}",
+        "ONEGATE_HAPROXY_LB#{lb_idx}_SERVER_PORT=#{server_port}"
     ]
 end
